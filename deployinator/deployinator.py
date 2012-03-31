@@ -8,7 +8,7 @@ import os
 
 env.user = "tomi"
 
-TEMPLATES = os.path.join(os.path.dirname(__file__), "templates")
+TEMPLATES = os.path.dirname(__file__)
 
 def fab_init(name, packages = [], **args):
     env.project = name
