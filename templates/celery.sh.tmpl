@@ -1,0 +1,10 @@
+#!/bin/bash -e
+# http://senko.net/en/django-nginx-gunicorn/
+
+cd %(deploy)s
+source %(venv)s/bin/activate
+
+export DJANGO_SETTINGS_MODULE=%(settings)s
+export PRODUCTION=1
+
+exec su -c "%(venv)s/bin/python ./manage.py celeryd --events -c 1 -f %(log)s/celery.log" %(user)s

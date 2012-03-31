@@ -1,0 +1,7 @@
+# http://senko.net/en/django-nginx-gunicorn/
+description "%(project)s gunicorn"
+start on runlevel [2345]
+stop on runlevel [06]
+respawn
+respawn limit 10 5
+exec %(deploy)s/gunicorn.sh > %(log)s/upstart.log 2>&1
