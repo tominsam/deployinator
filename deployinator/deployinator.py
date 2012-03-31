@@ -10,7 +10,7 @@ env.user = "tomi"
 
 TEMPLATES = os.path.dirname(__file__)
 
-def fab_init(name, packages = [], **args):
+def fab_init(name, **args):
     env.project = name
     env.rules = {}
     for k, v in args.items():
@@ -35,46 +35,39 @@ def shell(*cmd):
 def tail():
     shell("tail -f %(log)s/*.log"%env)
 
-def sync_files():
-    rsync_project(
-        local_dir="./",
-        remote_dir="%(deploy)s/"%env,
-        exclude=["venv", "*.pyc", ".git"],
-        #delete=True,
-    )
+def upgrade():
+    sudo("apt-get update")
+    sudo("apt-get dist-upgrade")
 
-def bootstrap():
+def deploy():
     run("mkdir -p %(deploy)s"%env)
 
     # this is just a default baseline list of packages I want on everything. Includes
     # reuqirements for deployment and useful things I just like to have on a server.
-    packages = list(set([
+    # Preserving order here is important!
+    packages = [
         "python", "python-virtualenv", "python-mysqldb",
         "mysql-server", "memcached", "mysql-client", "python-dev",
         "nginx", "joe", "munin", "munin-node", "redis-server", "varnish",
         "python-imaging", "rsync", "screen", "htop", "curl", "git", "build-essential",
-    ]).union(set(getattr(env, "packages", []))))
+    ] + getattr(env, "packages", [])
 
-    sudo("apt-get update")
-    sudo("DEBIAN_FRONTEND=noninteractive apt-get install -y %s"%(" ".join(packages)), shell=True)
+    sudo("DEBIAN_FRONTEND=noninteractive apt-get install -qq -f -y %s"%(" ".join(packages)), shell=True)
 
     run("if [ ! -f %(venv)s/bin/python ]; then virtualenv %(venv)s; fi"%env)
 
     sudo("mkdir -p %(log)s"%env)
     sudo("chown -R %(user)s:%(user)s %(log)s"%env)
 
-    sync_files()
-
     if hasattr(env, "database"):
         run("(echo 'create database %(database)s charset=utf8' | mysql -uroot) || true"%env)
 
-
-def deploy():
-    print "if this fails you need to bootstrap:"
-    run("ls %(deploy)s > /dev/null"%env) # will fail if deploy folder doesn't exist
-    print "ok, all good."
-
-    sync_files()
+    rsync_project(
+        local_dir="./",
+        remote_dir="%(deploy)s/"%env,
+        exclude=["venv", "*.pyc", ".git"],
+        #delete=True,
+    )
 
     # TODO - really should sort out whatever keeps making this rooty.
     sudo("mkdir -p %(log)s"%env)
@@ -122,6 +115,12 @@ def deploy():
         upload_template(os.path.join(TEMPLATES, "celery.sh.tmpl"), "%(deploy)s/celery.sh"%env,
             context=context, template_dir=TEMPLATES, mode=0755)
         sudo("stop %(project)s_celery; sleep 1; start %(project)s_celery"%env)
+
+    if env.rules.get("templates"):
+        for name, path in env.rules["templates"].items():
+            # TODO - make sudo optional
+            upload_template(name, path, context=env, use_sudo=True, mirror_local_mode=True)
+
 
     if env.rules.get("extra"):
         for extra in env.rules["extra"]:
