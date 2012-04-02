@@ -32,12 +32,24 @@ def shell(*cmd):
     print ' '.join(run)
     subprocess.call(run)
 
+def manage(cmd):
+    shell("%(venv)s/bin/python %(deploy)s/manage.py "%env + cmd)
+
 def tail():
     shell("tail -f %(log)s/*.log"%env)
 
 def upgrade():
     sudo("apt-get update")
     sudo("apt-get dist-upgrade")
+
+def sync():
+    rsync_project(
+        local_dir="./",
+        remote_dir="%(deploy)s/"%env,
+        exclude=["venv", "*.pyc", ".git"],
+        #delete=True,
+    )
+
 
 def deploy():
     run("mkdir -p %(deploy)s"%env)
@@ -62,17 +74,7 @@ def deploy():
     if hasattr(env, "database"):
         run("(echo 'create database %(database)s charset=utf8' | mysql -uroot) || true"%env)
 
-    rsync_project(
-        local_dir="./",
-        remote_dir="%(deploy)s/"%env,
-        exclude=["venv", "*.pyc", ".git"],
-        #delete=True,
-    )
-
-    # TODO - really should sort out whatever keeps making this rooty.
-    sudo("mkdir -p %(log)s"%env)
-    sudo("chown -R %(user)s:%(user)s %(log)s"%env)
-
+    sync()
 
     if env.rules.get("nginx"):
         upload_template(env.rules.get("nginx"), "/etc/nginx/sites-enabled/%(project)s.conf"%env,
@@ -132,5 +134,6 @@ def deploy():
 def get_database():
     run("mysqldump -uroot %(database)s | gzip -c > /tmp/dump.sql.gz"%env, shell=False)
     get("/tmp/dump.sql.gz", "/tmp/%(project)s-dump.sql.gz"%env)
+    os.system("echo 'drop database %(database)s; create database %(database)s charset=utf8' | mysql -uroot"%env)
     os.system("gzip -cd /tmp/%(project)s-dump.sql.gz | mysql -uroot %(database)s"%env)
 
