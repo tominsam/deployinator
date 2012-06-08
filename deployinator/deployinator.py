@@ -32,7 +32,7 @@ def shell(*cmd):
     print ' '.join(run)
     subprocess.call(run)
 
-def manage(cmd):
+def manage(cmd=""):
     shell("%(venv)s/bin/python %(deploy)s/manage.py "%env + cmd)
 
 def tail():
@@ -64,6 +64,7 @@ def deploy():
         "python-imaging", "rsync", "screen", "htop", "curl", "git", "build-essential",
     ] + getattr(env, "packages", [])
 
+    sudo("DEBIAN_FRONTEND=noninteractive apt-get update -qq -y")
     sudo("DEBIAN_FRONTEND=noninteractive apt-get install -qq -f -y %s"%(" ".join(packages)), shell=True)
 
     run("if [ ! -f %(venv)s/bin/python ]; then virtualenv %(venv)s; fi"%env)
