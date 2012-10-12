@@ -8,15 +8,38 @@ export DJANGO_SETTINGS_MODULE=%(settings)s
 export PYTHONPATH=.
 export PRODUCTION=1
 
-exec %(venv)s/bin/gunicorn_django \
-    --user=%(user)s \
-    --group=%(user)s \
-    --name=%(project)s_gunicorn \
-    -b 0.0.0.0:%(port)s \
-    -w 2 \
-    --max-requests=5000 \
-    --timeout 60 \
-    --preload \
-    --log-level=info \
-    --log-file=%(log)s/gunicorn.log \
-    --pid=/var/run/gunicorn/%(project)s.pid
+
+if [ -f wsgi.py ]
+then
+    echo "wsgi.py found - booting eventlet gunicorn"
+    exec %(venv)s/bin/gunicorn \
+        --user=%(user)s \
+        --group=%(user)s \
+        --name=%(project)s_gunicorn \
+        -b 0.0.0.0:%(port)s \
+        -w 2 \
+        -k eventlet \
+        --max-requests=5000 \
+        --timeout 60 \
+        --preload \
+        --log-level=warn \
+        --log-file=%(log)s/gunicorn.log \
+        --pid=/var/run/gunicorn/%(project)s.pid \
+        wsgi:application
+        
+else
+    echo "booting default gunicorn_django"
+    exec %(venv)s/bin/gunicorn_django \
+        --user=%(user)s \
+        --group=%(user)s \
+        --name=%(project)s_gunicorn \
+        -b 0.0.0.0:%(port)s \
+        -w 2 \
+        --max-requests=5000 \
+        --timeout 60 \
+        --preload \
+        --log-level=info \
+        --log-file=%(log)s/gunicorn.log \
+        --pid=/var/run/gunicorn/%(project)s.pid
+
+fi
