@@ -135,6 +135,7 @@ def deploy():
 def get_database():
     run("mysqldump -uroot %(database)s | gzip -c > /tmp/dump.sql.gz"%env, shell=False)
     get("/tmp/dump.sql.gz", "/tmp/%(project)s-dump.sql.gz"%env)
-    os.system("echo 'drop database %(database)s; create database %(database)s charset=utf8' | mysql -uroot"%env)
+    os.system("echo 'drop database %(database)s;' | mysql -uroot"%env)
+    os.system("echo 'create database %(database)s charset=utf8' | mysql -uroot"%env)
     os.system("gzip -cd /tmp/%(project)s-dump.sql.gz | mysql -uroot %(database)s"%env)
 
