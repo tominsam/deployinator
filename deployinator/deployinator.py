@@ -58,11 +58,21 @@ def deploy():
     # reuqirements for deployment and useful things I just like to have on a server.
     # Preserving order here is important!
     packages = [
-        "python", "python-virtualenv", "python-mysqldb",
-        "mysql-server", "memcached", "mysql-client", "python-dev",
+        "python", "python-virtualenv",
+        "memcached", "python-dev",
         "nginx", "joe", "munin", "munin-node", "redis-server", "varnish",
         "python-imaging", "rsync", "screen", "htop", "curl", "git", "build-essential",
     ] + getattr(env, "packages", [])
+
+    if env.get("mysql"):
+        packages += [
+            "python-mysqldb", "mysql-server", "mysql-client",
+        ]
+    if env.get("postgresql"):
+        packages += [
+            "python-psycopg2", "postgresql-9.1",
+        ]
+
 
     sudo("DEBIAN_FRONTEND=noninteractive apt-get update -qq -y")
     sudo("DEBIAN_FRONTEND=noninteractive apt-get install -qq -f -y %s"%(" ".join(packages)), shell=True)
@@ -72,7 +82,9 @@ def deploy():
     sudo("mkdir -p %(log)s"%env)
     sudo("chown -R %(user)s:%(user)s %(log)s"%env)
 
-    if hasattr(env, "database"):
+    if hasattr(env, "postgresql"):
+        run("(sudo su postgres -c 'createdb %(database)s -E utf8; createuser %(database)s -R -S -D;') || true"%env)
+    if hasattr(env, "mysql"):
         run("(echo 'create database %(database)s charset=utf8' | mysql -uroot) || true"%env)
 
     sync()
@@ -133,9 +145,22 @@ def deploy():
 
 
 def get_database():
+    if env.get("mysql"):
+        return get_mysql_database()
+    if env.get("postgresql"):
+        return get_pg_database()
+
+def get_mysql_database():
     run("mysqldump -uroot %(database)s | gzip -c > /tmp/dump.sql.gz"%env, shell=False)
     get("/tmp/dump.sql.gz", "/tmp/%(project)s-dump.sql.gz"%env)
     os.system("echo 'drop database %(database)s;' | mysql -uroot"%env)
     os.system("echo 'create database %(database)s charset=utf8' | mysql -uroot"%env)
     os.system("gzip -cd /tmp/%(project)s-dump.sql.gz | mysql -uroot %(database)s"%env)
+
+def get_pg_database():
+    run("pg_dump -U%(database)s %(database)s | gzip -c > /tmp/pg_dump.sql.gz"%env, shell=False)
+    get("/tmp/pg_dump.sql.gz", "/tmp/%(project)s-pg-dump.sql.gz"%env)
+    os.system("dropdb %(database)s"%env)
+    os.system("createdb %(database)s -E utf8"%env)
+    os.system("gzip -cd /tmp/%(project)s-pg-dump.sql.gz | psql %(database)s"%env)
 
