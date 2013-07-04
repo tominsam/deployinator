@@ -54,6 +54,9 @@ def sync():
 def deploy():
     run("mkdir -p %(deploy)s"%env)
 
+    for ppa in env.get("ppa", []):
+        sudo("add-apt-repository -y ppa:%s"%ppa)
+
     # this is just a default baseline list of packages I want on everything. Includes
     # reuqirements for deployment and useful things I just like to have on a server.
     # Preserving order here is important!
