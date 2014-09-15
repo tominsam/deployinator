@@ -80,7 +80,7 @@ def deploy():
     sudo("DEBIAN_FRONTEND=noninteractive apt-get update -qq -y")
     sudo("DEBIAN_FRONTEND=noninteractive apt-get install -qq -f -y %s"%(" ".join(packages)), shell=True)
 
-    run("if [ ! -f %(venv)s/bin/python ]; then virtualenv %(venv)s; fi"%env)
+    run("if [ ! -f %(venv)s/bin/python ]; then virtualenv --system-site-packages %(venv)s; fi"%env)
 
     sudo("mkdir -p %(log)s"%env)
     sudo("chown -R %(user)s:%(user)s %(log)s"%env)
