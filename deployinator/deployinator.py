@@ -148,10 +148,11 @@ def deploy():
 
 
 def get_database():
-    if env.get("mysql"):
-        return get_mysql_database()
-    if env.get("postgresql"):
-        return get_pg_database()
+    return get_django_database()
+    # if env.get("mysql"):
+    #     return get_mysql_database()
+    # if env.get("postgresql"):
+    #     return get_pg_database()
 
 def get_mysql_database():
     run("mysqldump -uroot %(database)s | gzip -c > /tmp/dump.sql.gz"%env, shell=False)
@@ -167,3 +168,9 @@ def get_pg_database():
     os.system("createdb %(database)s -E utf8"%env)
     os.system("gzip -cd /tmp/%(project)s-pg-dump.sql.gz | psql %(database)s"%env)
 
+def get_django_database():
+    run("cd %(deploy)s && %(venv)s/bin/python manage.py dumpdata --all --natural-foreign --natural-primary | gzip -c > /tmp/data.json.gz"%env)
+    get("/tmp/data.json.gz", "/tmp/%(project)s-data.json.gz"%env)
+    os.system("gunzip /tmp/%(project)s-data.json.gz"%env)
+    os.system("rm default.db")
+    os.system("./manage.py loaddata /tmp/%(project)s-data.json"%env)
